@@ -104,7 +104,7 @@ const Game = struct {
 
 const guesses_x_offset = 40;
 const guesses_y_offset = 5;
-const kbd_x_offset = 1;
+const kbd_x_offset: [3]i32 = [_]i32{ 1, 11, 21 };
 const kbd_y_offset = 110;
 const kbd_row_spacing = 16;
 const kbd_row_1 = "qwertyuiop";
@@ -497,26 +497,27 @@ const Lingword = struct {
         while (i < kbd_row_1.len) : (i += 1) {
             const color = letter_from_status(self.letter_statuses[kbd_row_1[i] - 'a']);
             change_color(color);
-            draw_letter(kbd_row_1[i], kbd_x_offset + @intCast(i32, i) * 16, kbd_y_offset);
+            draw_letter(kbd_row_1[i], kbd_x_offset[0] + @intCast(i32, i) * 16, kbd_y_offset);
         }
         i = 0;
         while (i < kbd_row_2.len) : (i += 1) {
             const color = letter_from_status(self.letter_statuses[kbd_row_2[i] - 'a']);
             change_color(color);
-            draw_letter(kbd_row_2[i], kbd_x_offset + @intCast(i32, i) * 16, kbd_y_offset + 1 * kbd_row_spacing);
+            draw_letter(kbd_row_2[i], kbd_x_offset[1] + @intCast(i32, i) * 16, kbd_y_offset + 1 * kbd_row_spacing);
         }
         i = 0;
         while (i < kbd_row_3.len) : (i += 1) {
             const color = letter_from_status(self.letter_statuses[kbd_row_3[i] - 'a']);
             change_color(color);
-            draw_letter(kbd_row_3[i], kbd_x_offset + @intCast(i32, i) * 16, kbd_y_offset + 2 * kbd_row_spacing);
+            draw_letter(kbd_row_3[i], kbd_x_offset[2] + @intCast(i32, i) * 16, kbd_y_offset + 2 * kbd_row_spacing);
         }
     }
 
     fn draw_cursor(self: *Lingword) void {
         change_color(CURSOR_RECT);
-        w4.rect(self.cursor_x * 16 + kbd_x_offset - 1, self.cursor_y * 16 + kbd_y_offset - 1, 16, 16);
-        w4.rect(self.cursor_x * 16 + kbd_x_offset, self.cursor_y * 16 + kbd_y_offset, 14, 14);
+        const x_offset = kbd_x_offset[@intCast(usize, self.cursor_y)];
+        w4.rect(self.cursor_x * 16 + x_offset - 1, self.cursor_y * 16 + kbd_y_offset - 1, 16, 16);
+        w4.rect(self.cursor_x * 16 + x_offset, self.cursor_y * 16 + kbd_y_offset, 14, 14);
     }
 
     fn draw_submit_guess(self: *Lingword) void {
