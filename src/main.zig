@@ -124,11 +124,13 @@ const LetterStatus = enum {
     Unknown,
     Absent,
     Present,
+    CorrectSpot,
 };
 
 const Lingword = struct {
     word_to_guess: [WORD_LENGTH:0]u8,
     guesses: [GUESS_LENGTH][WORD_LENGTH:0]u8,
+    guesses_assessment: [GUESS_LENGTH][WORD_LENGTH]LetterStatus,
     current_guess: usize,
     letter_statuses: [26]LetterStatus,
     state: LingwordState,
@@ -140,6 +142,7 @@ const Lingword = struct {
         var w = Lingword{
             .word_to_guess = undefined,
             .guesses = undefined,
+            .guesses_assessment = undefined,
             .current_guess = 0,
             .letter_statuses = undefined,
             .state = LingwordState.NotReady,
@@ -167,6 +170,13 @@ const Lingword = struct {
             var j: usize = 0;
             while (j < WORD_LENGTH) : (j += 1) {
                 self.guesses[i][j] = '.';
+            }
+        }
+        i = 0;
+        while (i < GUESS_LENGTH) : (i += 1) {
+            var j: usize = 0;
+            while (j < WORD_LENGTH) : (j += 1) {
+                self.guesses_assessment[i][j] = LetterStatus.Unknown;
             }
         }
         i = 0;
@@ -319,15 +329,35 @@ const Lingword = struct {
         self.previous_input = w4.GAMEPAD1.*;
     }
 
-    fn assess_guess(self: *Lingword) void {
-        // update letter statuses
-        for (self.guesses[self.current_guess]) |letter| {
-            if (self.answer_contains_letter(letter)) {
+    fn assess_guess_colors(self: *Lingword) void {
+        var i: usize = 0;
+        var word_to_guess: [WORD_LENGTH:0]u8 = undefined;
+        while (i < WORD_LENGTH) : (i += 1) {
+            self.guesses_assessment[self.current_guess][i] = LetterStatus.Absent;
+            word_to_guess[i] = self.word_to_guess[i];
+        }
+        for (self.guesses[self.current_guess]) |letter, idx| {
+            self.letter_statuses[letter - 'a'] = LetterStatus.Absent;
+            if (word_to_guess[idx] == letter) {
+                self.guesses_assessment[self.current_guess][idx] = LetterStatus.CorrectSpot;
                 self.letter_statuses[letter - 'a'] = LetterStatus.Present;
-            } else {
-                self.letter_statuses[letter - 'a'] = LetterStatus.Absent;
+                word_to_guess[idx] = '.';
             }
         }
+        for (self.guesses[self.current_guess]) |letter, idx| {
+            var j: usize = 0;
+            while (j < WORD_LENGTH) : (j += 1) {
+                if (word_to_guess[j] == letter) {
+                    self.guesses_assessment[self.current_guess][idx] = LetterStatus.Present;
+                    self.letter_statuses[letter - 'a'] = LetterStatus.Present;
+                    word_to_guess[j] = '.';
+                }
+            }
+        }
+    }
+
+    fn assess_guess(self: *Lingword) void {
+        self.assess_guess_colors();
         if (self.guess_is_correct()) {
             self.state = LingwordState.Victory;
         } else if (self.current_guess == 5) {
@@ -425,8 +455,11 @@ const Lingword = struct {
         return true;
     }
 
-    fn letter_color(self: *Lingword, letter: u8) u16 {
-        switch (self.letter_statuses[letter - 'a']) {
+    fn letter_from_status(letter_status: LetterStatus) u16 {
+        switch (letter_status) {
+            LetterStatus.CorrectSpot => {
+                return CORRECT_SPOT;
+            },
             LetterStatus.Present => {
                 return WRONG_SPOT;
             },
@@ -449,17 +482,9 @@ const Lingword = struct {
                 const y = guesses_y_offset + @intCast(i32, i) * 16;
                 if (letter == '.') {
                     change_color(UNSPECIFIED);
-                    //w4.rect(x, y, 7, 7);
                     draw_letter_rect(x, y);
                 } else {
-                    var color = NORMAL;
-                    if (i < self.current_guess) {
-                        if (self.word_to_guess[j] == letter) {
-                            color = CORRECT_SPOT;
-                        } else {
-                            color = self.letter_color(letter);
-                        }
-                    }
+                    const color = letter_from_status(self.guesses_assessment[i][j]);
                     change_color(color);
                     draw_letter(letter, x, y);
                 }
@@ -470,17 +495,20 @@ const Lingword = struct {
     fn draw_keyboard(self: *Lingword) void {
         var i: usize = 0;
         while (i < kbd_row_1.len) : (i += 1) {
-            change_color(self.letter_color(kbd_row_1[i]));
+            const color = letter_from_status(self.letter_statuses[kbd_row_1[i] - 'a']);
+            change_color(color);
             draw_letter(kbd_row_1[i], kbd_x_offset + @intCast(i32, i) * 16, kbd_y_offset);
         }
         i = 0;
         while (i < kbd_row_2.len) : (i += 1) {
-            change_color(self.letter_color(kbd_row_2[i]));
+            const color = letter_from_status(self.letter_statuses[kbd_row_2[i] - 'a']);
+            change_color(color);
             draw_letter(kbd_row_2[i], kbd_x_offset + @intCast(i32, i) * 16, kbd_y_offset + 1 * kbd_row_spacing);
         }
         i = 0;
         while (i < kbd_row_3.len) : (i += 1) {
-            change_color(self.letter_color(kbd_row_3[i]));
+            const color = letter_from_status(self.letter_statuses[kbd_row_3[i] - 'a']);
+            change_color(color);
             draw_letter(kbd_row_3[i], kbd_x_offset + @intCast(i32, i) * 16, kbd_y_offset + 2 * kbd_row_spacing);
         }
     }
