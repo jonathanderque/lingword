@@ -30,6 +30,12 @@ const NORMAL: u16 = 0x04;
 const WRONG_SPOT: u16 = 0x24;
 const CORRECT_SPOT: u16 = 0x31;
 const ABSENT: u16 = 0x41;
+const UNSPECIFIED_RECT: u16 = 0x40;
+const NORMAL_RECT: u16 = 0x40;
+const WRONG_SPOT_RECT: u16 = 0x22;
+const CORRECT_SPOT_RECT: u16 = 0x33;
+const ABSENT_RECT: u16 = 0x44;
+const CURSOR_RECT: u16 = 0x30;
 
 fn change_color(color: u16) void {
     w4.DRAW_COLORS.* = color;
@@ -96,10 +102,11 @@ const Game = struct {
     }
 };
 
-const guesses_x_offset = 50;
+const guesses_x_offset = 40;
 const guesses_y_offset = 5;
-const kbd_x_offset = 8;
-const kbd_y_offset = 70;
+const kbd_x_offset = 1;
+const kbd_y_offset = 110;
+const kbd_row_spacing = 16;
 const kbd_row_1 = "qwertyuiop";
 const kbd_row_2 = "asdfghjkl";
 const kbd_row_3 = "zxcvbnm";
@@ -348,6 +355,22 @@ const Lingword = struct {
     }
     //// Drawing functions ////
 
+    fn draw_letter_rect(x: i32, y: i32) void {
+        const old_color = w4.DRAW_COLORS.*;
+        //const rect_color = (old_color & 0xf) << 8 | (old_color & 0xf0) >> 8;
+        const rect_color = switch (old_color) {
+            UNSPECIFIED => UNSPECIFIED_RECT,
+            NORMAL => NORMAL_RECT,
+            WRONG_SPOT => WRONG_SPOT_RECT,
+            CORRECT_SPOT => CORRECT_SPOT_RECT,
+            ABSENT => ABSENT_RECT,
+            else => UNSPECIFIED_RECT,
+        };
+        change_color(rect_color);
+        w4.rect(x, y, 14, 14);
+        change_color(old_color);
+    }
+
     fn draw_letter(letter: u8, x: i32, y: i32) void {
         const str =
             switch (letter) {
@@ -379,7 +402,8 @@ const Lingword = struct {
             'z' => "Z",
             else => " ",
         };
-        w4.text(str, x, y);
+        draw_letter_rect(x, y);
+        w4.text(str, x + 3, y + 3);
     }
 
     fn answer_contains_letter(self: *Lingword, letter: u8) bool {
@@ -421,11 +445,12 @@ const Lingword = struct {
             var j: usize = 0;
             while (j < WORD_LENGTH) : (j += 1) {
                 const letter = self.guesses[i][j];
-                const x = guesses_x_offset + @intCast(i32, j) * 8;
-                const y = guesses_y_offset + @intCast(i32, i) * 8;
+                const x = guesses_x_offset + @intCast(i32, j) * 16;
+                const y = guesses_y_offset + @intCast(i32, i) * 16;
                 if (letter == '.') {
                     change_color(UNSPECIFIED);
-                    w4.rect(x, y, 7, 7);
+                    //w4.rect(x, y, 7, 7);
+                    draw_letter_rect(x, y);
                 } else {
                     var color = NORMAL;
                     if (i < self.current_guess) {
@@ -451,42 +476,44 @@ const Lingword = struct {
         i = 0;
         while (i < kbd_row_2.len) : (i += 1) {
             change_color(self.letter_color(kbd_row_2[i]));
-            draw_letter(kbd_row_2[i], kbd_x_offset + @intCast(i32, i) * 16, kbd_y_offset + 10);
+            draw_letter(kbd_row_2[i], kbd_x_offset + @intCast(i32, i) * 16, kbd_y_offset + 1 * kbd_row_spacing);
         }
         i = 0;
         while (i < kbd_row_3.len) : (i += 1) {
             change_color(self.letter_color(kbd_row_3[i]));
-            draw_letter(kbd_row_3[i], kbd_x_offset + @intCast(i32, i) * 16, kbd_y_offset + 20);
+            draw_letter(kbd_row_3[i], kbd_x_offset + @intCast(i32, i) * 16, kbd_y_offset + 2 * kbd_row_spacing);
         }
     }
 
     fn draw_cursor(self: *Lingword) void {
-        w4.text(">", self.cursor_x * 16 - 8 + kbd_x_offset, self.cursor_y * 10 + kbd_y_offset);
+        change_color(CURSOR_RECT);
+        w4.rect(self.cursor_x * 16 + kbd_x_offset - 1, self.cursor_y * 16 + kbd_y_offset - 1, 16, 16);
+        w4.rect(self.cursor_x * 16 + kbd_x_offset, self.cursor_y * 16 + kbd_y_offset, 14, 14);
     }
 
     fn draw_submit_guess(self: *Lingword) void {
         _ = self;
         change_color(NORMAL);
-        w4.text("Press", 20, kbd_y_offset + 20);
-        w4.text("BTN1 to submit", 28, kbd_y_offset + 30);
-        w4.text("BTN2 to edit", 28, kbd_y_offset + 40);
+        w4.text("Press", guesses_x_offset - 16, kbd_y_offset);
+        w4.text("BTN1 to submit", guesses_x_offset - 8, kbd_y_offset + 10);
+        w4.text("BTN2 to edit", guesses_x_offset - 8, kbd_y_offset + 20);
     }
 
     fn draw_victory(self: *Lingword) void {
         _ = self;
         change_color(NORMAL);
-        w4.text("Victory !!", 28, kbd_y_offset + 30);
+        w4.text("Victory !!", guesses_x_offset, kbd_y_offset);
     }
 
     fn draw_loss(self: *Lingword) void {
         _ = self;
         change_color(NORMAL);
-        w4.text("You lose...", 28, kbd_y_offset + 30);
-        w4.text("Answer was", 28, kbd_y_offset + 40);
+        w4.text("You lose..", guesses_x_offset, kbd_y_offset);
+        w4.text("Answer was", guesses_x_offset, kbd_y_offset + 10);
         var i: usize = 0;
         change_color(CORRECT_SPOT);
         while (i < WORD_LENGTH) : (i += 1) {
-            draw_letter(self.word_to_guess[i], 28 + @intCast(i32, i) * 10, kbd_y_offset + 60);
+            draw_letter(self.word_to_guess[i], guesses_x_offset + @intCast(i32, i) * 16, kbd_y_offset + 30);
         }
     }
 
