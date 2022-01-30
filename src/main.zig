@@ -42,6 +42,56 @@ fn change_color(color: u16) void {
     w4.DRAW_COLORS.* = color;
 }
 
+fn draw_letter_rect(color: u16, x: i32, y: i32) void {
+    //const rect_color = (old_color & 0xf) << 8 | (old_color & 0xf0) >> 8;
+    const rect_color = switch (color) {
+        UNSPECIFIED => UNSPECIFIED_RECT,
+        NORMAL => NORMAL_RECT,
+        WRONG_SPOT => WRONG_SPOT_RECT,
+        CORRECT_SPOT => CORRECT_SPOT_RECT,
+        ABSENT => ABSENT_RECT,
+        else => UNSPECIFIED_RECT,
+    };
+    change_color(rect_color);
+    w4.rect(x, y, 14, 14);
+}
+
+fn draw_letter(letter: u8, color: u16, x: i32, y: i32) void {
+    const str =
+        switch (letter) {
+        'a' => "A",
+        'b' => "B",
+        'c' => "C",
+        'd' => "D",
+        'e' => "E",
+        'f' => "F",
+        'g' => "G",
+        'h' => "H",
+        'i' => "I",
+        'j' => "J",
+        'k' => "K",
+        'l' => "L",
+        'm' => "M",
+        'n' => "N",
+        'o' => "O",
+        'p' => "P",
+        'q' => "Q",
+        'r' => "R",
+        's' => "S",
+        't' => "T",
+        'u' => "U",
+        'v' => "V",
+        'w' => "W",
+        'x' => "X",
+        'y' => "Y",
+        'z' => "Z",
+        else => " ",
+    };
+    draw_letter_rect(color, x, y);
+    change_color(color);
+    w4.text(str, x + 3, y + 3);
+}
+
 export fn to_be_removed() void {
     var i: usize = 1;
     while (i < WORD_LENGTH) : (i += 1) {
@@ -425,57 +475,6 @@ const Lingword = struct {
     }
     //// Drawing functions ////
 
-    fn draw_letter_rect(x: i32, y: i32) void {
-        const old_color = w4.DRAW_COLORS.*;
-        //const rect_color = (old_color & 0xf) << 8 | (old_color & 0xf0) >> 8;
-        const rect_color = switch (old_color) {
-            UNSPECIFIED => UNSPECIFIED_RECT,
-            NORMAL => NORMAL_RECT,
-            WRONG_SPOT => WRONG_SPOT_RECT,
-            CORRECT_SPOT => CORRECT_SPOT_RECT,
-            ABSENT => ABSENT_RECT,
-            else => UNSPECIFIED_RECT,
-        };
-        change_color(rect_color);
-        w4.rect(x, y, 14, 14);
-        change_color(old_color);
-    }
-
-    fn draw_letter(letter: u8, x: i32, y: i32) void {
-        const str =
-            switch (letter) {
-            'a' => "A",
-            'b' => "B",
-            'c' => "C",
-            'd' => "D",
-            'e' => "E",
-            'f' => "F",
-            'g' => "G",
-            'h' => "H",
-            'i' => "I",
-            'j' => "J",
-            'k' => "K",
-            'l' => "L",
-            'm' => "M",
-            'n' => "N",
-            'o' => "O",
-            'p' => "P",
-            'q' => "Q",
-            'r' => "R",
-            's' => "S",
-            't' => "T",
-            'u' => "U",
-            'v' => "V",
-            'w' => "W",
-            'x' => "X",
-            'y' => "Y",
-            'z' => "Z",
-            else => " ",
-        };
-        draw_letter_rect(x, y);
-        w4.text(str, x + 3, y + 3);
-    }
-
     fn answer_contains_letter(self: *Lingword, letter: u8) bool {
         for (self.word_to_guess) |l| {
             if (l == letter) {
@@ -521,12 +520,10 @@ const Lingword = struct {
                 const x = guesses_x_offset + @intCast(i32, j) * 16;
                 const y = guesses_y_offset + @intCast(i32, i) * 16;
                 if (letter == '.') {
-                    change_color(UNSPECIFIED);
-                    draw_letter_rect(x, y);
+                    draw_letter_rect(UNSPECIFIED, x, y);
                 } else {
                     const color = letter_from_status(self.guesses_assessment[i][j]);
-                    change_color(color);
-                    draw_letter(letter, x, y);
+                    draw_letter(letter, color, x, y);
                 }
             }
         }
@@ -536,20 +533,17 @@ const Lingword = struct {
         var i: usize = 0;
         while (i < kbd_row_1.len) : (i += 1) {
             const color = letter_from_status(self.letter_statuses[kbd_row_1[i] - 'a']);
-            change_color(color);
-            draw_letter(kbd_row_1[i], kbd_x_offset[0] + @intCast(i32, i) * 16, kbd_y_offset);
+            draw_letter(kbd_row_1[i], color, kbd_x_offset[0] + @intCast(i32, i) * 16, kbd_y_offset);
         }
         i = 0;
         while (i < kbd_row_2.len) : (i += 1) {
             const color = letter_from_status(self.letter_statuses[kbd_row_2[i] - 'a']);
-            change_color(color);
-            draw_letter(kbd_row_2[i], kbd_x_offset[1] + @intCast(i32, i) * 16, kbd_y_offset + 1 * kbd_row_spacing);
+            draw_letter(kbd_row_2[i], color, kbd_x_offset[1] + @intCast(i32, i) * 16, kbd_y_offset + 1 * kbd_row_spacing);
         }
         i = 0;
         while (i < kbd_row_3.len) : (i += 1) {
             const color = letter_from_status(self.letter_statuses[kbd_row_3[i] - 'a']);
-            change_color(color);
-            draw_letter(kbd_row_3[i], kbd_x_offset[2] + @intCast(i32, i) * 16, kbd_y_offset + 2 * kbd_row_spacing);
+            draw_letter(kbd_row_3[i], color, kbd_x_offset[2] + @intCast(i32, i) * 16, kbd_y_offset + 2 * kbd_row_spacing);
         }
     }
 
@@ -579,9 +573,8 @@ const Lingword = struct {
         w4.text("You lose..", guesses_x_offset, kbd_y_offset);
         w4.text("Answer was", guesses_x_offset, kbd_y_offset + 10);
         var i: usize = 0;
-        change_color(CORRECT_SPOT);
         while (i < WORD_LENGTH) : (i += 1) {
-            draw_letter(self.word_to_guess[i], guesses_x_offset + @intCast(i32, i) * 16, kbd_y_offset + 30);
+            draw_letter(self.word_to_guess[i], CORRECT_SPOT, guesses_x_offset + @intCast(i32, i) * 16, kbd_y_offset + 30);
         }
     }
 
