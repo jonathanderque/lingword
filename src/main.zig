@@ -25,6 +25,8 @@ const WORD_LENGTH: usize = 5;
 const WORD_LIST_ENTRY_LENGTH: usize = 6;
 const GUESS_LENGTH: usize = 6;
 
+const anim_step_duration = 300;
+
 // color schemes
 const UNSPECIFIED: u16 = 0x40;
 const NORMAL: u16 = 0x04;
@@ -135,7 +137,6 @@ export fn update() void {
 }
 
 fn draw_title_screen(ms: u32) void {
-    const step_duration = 300;
     const title = "lingword";
     const colors = [_]u16{
         CORRECT_SPOT,
@@ -148,12 +149,12 @@ fn draw_title_screen(ms: u32) void {
         ABSENT,
     };
     for (title) |letter, i| {
-        const max_index = ms / step_duration;
+        const max_index = ms / anim_step_duration;
         const color = if (i < max_index) colors[i] else NORMAL;
         draw_letter(letter, color, 16 * @intCast(i32, 1 + i), 60);
     }
     change_color(NORMAL);
-    if (ms > step_duration * title.len) {
+    if (ms > anim_step_duration * title.len) {
         w4.text("press any button", 16, 120);
     }
 }
@@ -187,7 +188,7 @@ const Game = struct {
                 self.title_step += 16;
             },
             GameState.Lingword => {
-                self.lingword.update();
+                self.lingword.update(16);
             },
         }
         previous_input = w4.GAMEPAD1.*;
@@ -234,6 +235,7 @@ const LingwordState = enum {
     PlayerInput,
     ReadyToSubmit,
     AssessGuess,
+    RevealGuess,
     UnknownWord,
     Victory,
     Loss,
@@ -255,6 +257,7 @@ const Lingword = struct {
     state: LingwordState,
     cursor_x: isize,
     cursor_y: isize,
+    reveal_timer: u32,
 
     fn init() Lingword {
         var w = Lingword{
@@ -266,6 +269,7 @@ const Lingword = struct {
             .state = LingwordState.NotReady,
             .cursor_x = 0,
             .cursor_y = 0,
+            .reveal_timer = 0,
         };
         return w;
     }
@@ -438,6 +442,7 @@ const Lingword = struct {
                 self.input_kbd();
             },
             LingwordState.AssessGuess => {},
+            LingwordState.RevealGuess => {},
             LingwordState.UnknownWord => {
                 self.input_unknown_word();
             },
@@ -508,6 +513,16 @@ const Lingword = struct {
             return;
         }
         self.assess_guess_colors();
+        self.state = LingwordState.RevealGuess;
+        self.reveal_timer = 0;
+    }
+
+    fn reveal_guess(self: *Lingword, ms: u32) void {
+        self.reveal_timer += ms;
+
+        if (self.reveal_timer < 6 * anim_step_duration) {
+            return;
+        }
         if (self.guess_is_correct()) {
             self.state = LingwordState.Victory;
         } else if (self.current_guess == 5) {
@@ -518,12 +533,15 @@ const Lingword = struct {
         self.current_guess += 1; // this allows the last guess to be colored
     }
 
-    fn update(self: *Lingword) void {
+    fn update(self: *Lingword, ms: u32) void {
         self.input();
 
         switch (self.state) {
             LingwordState.AssessGuess => {
                 self.assess_guess();
+            },
+            LingwordState.RevealGuess => {
+                self.reveal_guess(ms);
             },
             LingwordState.NotReady => {
                 self.reset_random();
@@ -571,20 +589,38 @@ const Lingword = struct {
     }
 
     //// Drawing functions ////
+    fn draw_guess(self: *Lingword, guess_index: usize, reveal_until: usize) void {
+        var j: usize = 0;
+        while (j < WORD_LENGTH) : (j += 1) {
+            const letter = self.guesses[guess_index][j];
+            const x = guesses_x_offset + @intCast(i32, j) * 16;
+            const y = guesses_y_offset + @intCast(i32, guess_index) * 16;
+            if (letter == '.') {
+                draw_letter_rect(UNSPECIFIED, x, y);
+            } else {
+                const color = if (j < reveal_until)
+                    letter_from_status(self.guesses_assessment[guess_index][j])
+                else
+                    NORMAL;
+                draw_letter(letter, color, x, y);
+            }
+        }
+    }
+
     fn draw_guesses(self: *Lingword) void {
         var i: usize = 0;
         while (i < GUESS_LENGTH) : (i += 1) {
-            var j: usize = 0;
-            while (j < WORD_LENGTH) : (j += 1) {
-                const letter = self.guesses[i][j];
-                const x = guesses_x_offset + @intCast(i32, j) * 16;
-                const y = guesses_y_offset + @intCast(i32, i) * 16;
-                if (letter == '.') {
-                    draw_letter_rect(UNSPECIFIED, x, y);
-                } else {
-                    const color = letter_from_status(self.guesses_assessment[i][j]);
-                    draw_letter(letter, color, x, y);
-                }
+            self.draw_guess(i, WORD_LENGTH);
+        }
+    }
+
+    fn draw_reveal_guesses(self: *Lingword) void {
+        var i: usize = 0;
+        while (i < GUESS_LENGTH) : (i += 1) {
+            if (i != self.current_guess) {
+                self.draw_guess(i, WORD_LENGTH);
+            } else {
+                self.draw_guess(i, self.reveal_timer / anim_step_duration);
             }
         }
     }
@@ -657,6 +693,9 @@ const Lingword = struct {
                 self.draw_submit_guess();
             },
             LingwordState.AssessGuess => {},
+            LingwordState.RevealGuess => {
+                self.draw_reveal_guesses();
+            },
             LingwordState.UnknownWord => {
                 self.draw_guesses();
                 self.draw_unknown_word();
