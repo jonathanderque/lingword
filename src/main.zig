@@ -38,12 +38,16 @@ const CORRECT_SPOT_RECT: u16 = 0x33;
 const ABSENT_RECT: u16 = 0x44;
 const CURSOR_RECT: u16 = 0x30;
 
+var previous_input: u8 = 0;
+fn button_released(button: u8) bool {
+    return w4.GAMEPAD1.* & button == 0 and previous_input & button != 0;
+}
+
 fn change_color(color: u16) void {
     w4.DRAW_COLORS.* = color;
 }
 
 fn draw_letter_rect(color: u16, x: i32, y: i32) void {
-    //const rect_color = (old_color & 0xf) << 8 | (old_color & 0xf0) >> 8;
     const rect_color = switch (color) {
         UNSPECIFIED => UNSPECIFIED_RECT,
         NORMAL => NORMAL_RECT,
@@ -130,26 +134,89 @@ export fn update() void {
     game.draw();
 }
 
+fn draw_title_screen(ms: u32) void {
+    const step_duration = 300;
+    const title = "lingword";
+    const colors = [_]u16{
+        CORRECT_SPOT,
+        ABSENT,
+        ABSENT,
+        ABSENT,
+        WRONG_SPOT,
+        ABSENT,
+        ABSENT,
+        ABSENT,
+    };
+    for (title) |letter, i| {
+        const max_index = ms / step_duration;
+        const color = if (i < max_index) colors[i] else NORMAL;
+        draw_letter(letter, color, 16 * @intCast(i32, 1 + i), 60);
+    }
+    change_color(NORMAL);
+    if (ms > step_duration * title.len) {
+        w4.text("press any button", 16, 120);
+    }
+}
+
+const GameState = enum {
+    TitleScreen,
+    Lingword,
+};
+
 const Game = struct {
     lingword: Lingword,
+    state: GameState,
+    title_step: u32, // in ms
 
     fn init() Game {
         var g = Game{
             .lingword = Lingword.init(),
+            .state = GameState.TitleScreen,
+            .title_step = 0,
         };
         return g;
     }
 
     fn update(self: *Game) void {
-        self.lingword.update();
+        switch (self.state) {
+            GameState.TitleScreen => {
+                if (button_released(w4.BUTTON_1) or button_released(w4.BUTTON_2)) {
+                    self.state = GameState.Lingword;
+                    self.title_step = 0;
+                }
+                self.title_step += 16;
+            },
+            GameState.Lingword => {
+                self.lingword.update();
+            },
+        }
+        previous_input = w4.GAMEPAD1.*;
     }
 
     fn draw(self: *Game) void {
-        self.lingword.draw();
+        switch (self.state) {
+            GameState.TitleScreen => {
+                draw_title_screen(self.title_step);
+            },
+            GameState.Lingword => {
+                self.lingword.draw();
+            },
+        }
     }
 
     fn input(self: *Game) void {
-        self.lingword.input();
+        switch (self.state) {
+            GameState.TitleScreen => {
+                //if (button_released(w4.BUTTON_1) or button_released(w4.BUTTON_2)) {
+                if (w4.GAMEPAD1.* & w4.BUTTON_1 != 0) {
+                    self.state = GameState.Lingword;
+                    self.title_step = 0;
+                }
+            },
+            GameState.Lingword => {
+                self.lingword.input();
+            },
+        }
     }
 };
 
@@ -188,7 +255,6 @@ const Lingword = struct {
     state: LingwordState,
     cursor_x: isize,
     cursor_y: isize,
-    previous_input: u8,
 
     fn init() Lingword {
         var w = Lingword{
@@ -200,7 +266,6 @@ const Lingword = struct {
             .state = LingwordState.NotReady,
             .cursor_x = 0,
             .cursor_y = 0,
-            .previous_input = 0,
         };
         return w;
     }
@@ -283,10 +348,6 @@ const Lingword = struct {
         return '.';
     }
 
-    fn button_released(self: *Lingword, button: u8) bool {
-        return w4.GAMEPAD1.* & button == 0 and self.previous_input & button != 0;
-    }
-
     fn normalize_cursor_x(self: *Lingword) void {
         if (self.cursor_x < 0) {
             if (self.cursor_y == 0) {
@@ -312,57 +373,57 @@ const Lingword = struct {
 
     fn input_kbd(self: *Lingword) void {
         const max_row = 3;
-        if (self.button_released(w4.BUTTON_LEFT)) {
+        if (button_released(w4.BUTTON_LEFT)) {
             self.cursor_x -= 1;
             self.normalize_cursor_x();
         }
-        if (self.button_released(w4.BUTTON_RIGHT)) {
+        if (button_released(w4.BUTTON_RIGHT)) {
             self.cursor_x += 1;
             self.normalize_cursor_x();
         }
-        if (self.button_released(w4.BUTTON_UP)) {
+        if (button_released(w4.BUTTON_UP)) {
             self.cursor_y -= 1;
             if (self.cursor_y < 0) {
                 self.cursor_y = max_row - 1;
             }
             self.normalize_cursor_x();
         }
-        if (self.button_released(w4.BUTTON_DOWN)) {
+        if (button_released(w4.BUTTON_DOWN)) {
             self.cursor_y += 1;
             if (self.cursor_y == max_row) {
                 self.cursor_y = 0;
             }
             self.normalize_cursor_x();
         }
-        if (self.button_released(w4.BUTTON_1)) {
+        if (button_released(w4.BUTTON_1)) {
             self.add_letter(self.get_keyboard_letter());
             if (self.guess_is_complete()) {
                 self.state = LingwordState.ReadyToSubmit;
             }
         }
-        if (self.button_released(w4.BUTTON_2)) {
+        if (button_released(w4.BUTTON_2)) {
             self.remove_last_letter();
         }
     }
 
     fn input_submit(self: *Lingword) void {
-        if (self.button_released(w4.BUTTON_1)) {
+        if (button_released(w4.BUTTON_1)) {
             self.state = LingwordState.AssessGuess;
         }
-        if (self.button_released(w4.BUTTON_2)) {
+        if (button_released(w4.BUTTON_2)) {
             self.remove_last_letter();
             self.state = LingwordState.PlayerInput;
         }
     }
 
     fn input_end(self: *Lingword) void {
-        if (self.button_released(w4.BUTTON_1) or self.button_released(w4.BUTTON_2)) {
+        if (button_released(w4.BUTTON_1) or button_released(w4.BUTTON_2)) {
             self.state = LingwordState.NotReady;
         }
     }
 
     fn input_unknown_word(self: *Lingword) void {
-        if (self.button_released(w4.BUTTON_1) or self.button_released(w4.BUTTON_2)) {
+        if (button_released(w4.BUTTON_1) or button_released(w4.BUTTON_2)) {
             self.state = LingwordState.PlayerInput;
         }
     }
@@ -387,7 +448,6 @@ const Lingword = struct {
                 self.input_end();
             },
         }
-        self.previous_input = w4.GAMEPAD1.*;
     }
 
     fn assess_guess_colors(self: *Lingword) void {
@@ -473,7 +533,6 @@ const Lingword = struct {
 
         self.draw();
     }
-    //// Drawing functions ////
 
     fn answer_contains_letter(self: *Lingword, letter: u8) bool {
         for (self.word_to_guess) |l| {
@@ -511,6 +570,7 @@ const Lingword = struct {
         }
     }
 
+    //// Drawing functions ////
     fn draw_guesses(self: *Lingword) void {
         var i: usize = 0;
         while (i < GUESS_LENGTH) : (i += 1) {
