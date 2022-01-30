@@ -147,44 +147,21 @@ export fn update() void {
     game.draw();
 }
 
-fn draw_title_screen(ms: u32) void {
-    const title = "lingword";
-    const colors = [_]u16{
-        CORRECT_SPOT,
-        ABSENT,
-        ABSENT,
-        ABSENT,
-        WRONG_SPOT,
-        ABSENT,
-        ABSENT,
-        ABSENT,
-    };
-    for (title) |letter, i| {
-        const max_index = ms / anim_step_duration;
-        const color = if (i < max_index) colors[i] else NORMAL;
-        draw_letter(letter, color, 16 * @intCast(i32, 1 + i), 60);
-    }
-    change_color(NORMAL);
-    if (ms > anim_step_duration * title.len) {
-        w4.text("press any button", 16, 120);
-    }
-}
-
 const GameState = enum {
     TitleScreen,
     Lingword,
 };
 
 const Game = struct {
-    lingword: Lingword,
     state: GameState,
-    title_step: u32, // in ms
+    title: TitleScreen,
+    lingword: Lingword,
 
     fn init() Game {
         var g = Game{
-            .lingword = Lingword.init(),
             .state = GameState.TitleScreen,
-            .title_step = 0,
+            .lingword = Lingword.init(),
+            .title = TitleScreen.init(),
         };
         return g;
     }
@@ -192,16 +169,17 @@ const Game = struct {
     fn update(self: *Game) void {
         switch (self.state) {
             GameState.TitleScreen => {
-                if (button_released(w4.BUTTON_1) or button_released(w4.BUTTON_2)) {
-                    self.state = GameState.Lingword;
+                if (self.title.state == TitleScreenState.ToGame) {
                     self.lingword.state = LingwordState.NotReady;
-                    self.title_step = 0;
+                    self.state = GameState.Lingword;
+                } else {
+                    self.title.update(16);
                 }
-                self.title_step += 16;
             },
             GameState.Lingword => {
                 if (self.lingword.state == LingwordState.BackToMenu) {
                     self.state = GameState.TitleScreen;
+                    self.title.reset();
                 } else {
                     self.lingword.update(16);
                 }
@@ -213,26 +191,67 @@ const Game = struct {
     fn draw(self: *Game) void {
         switch (self.state) {
             GameState.TitleScreen => {
-                draw_title_screen(self.title_step);
+                self.title.draw_title_screen();
             },
             GameState.Lingword => {
                 self.lingword.draw();
             },
         }
     }
+};
 
-    fn input(self: *Game) void {
-        switch (self.state) {
-            GameState.TitleScreen => {
-                if (w4.GAMEPAD1.* & w4.BUTTON_1 != 0) {
-                    self.state = GameState.Lingword;
-                    self.lingword.state = LingwordState.NotReady;
-                    self.title_step = 0;
-                }
-            },
-            GameState.Lingword => {
-                self.lingword.input();
-            },
+const TitleScreenState = enum {
+    ActiveMenu,
+    ToGame,
+};
+
+const TitleScreen = struct {
+    state: TitleScreenState,
+    title_ms: u32,
+
+    pub fn init() TitleScreen {
+        return TitleScreen{
+            .state = TitleScreenState.ActiveMenu,
+            .title_ms = 0,
+        };
+    }
+
+    fn reset(self: *TitleScreen) void {
+        self.state = TitleScreenState.ActiveMenu;
+        self.title_ms = 0;
+    }
+
+    fn draw_title_screen(self: *TitleScreen) void {
+        const title = "lingword";
+        const colors = [_]u16{
+            CORRECT_SPOT,
+            ABSENT,
+            ABSENT,
+            ABSENT,
+            WRONG_SPOT,
+            ABSENT,
+            ABSENT,
+            ABSENT,
+        };
+        for (title) |letter, i| {
+            const max_index = self.title_ms / anim_step_duration;
+            const color = if (i < max_index) colors[i] else NORMAL;
+            draw_letter(letter, color, 16 * @intCast(i32, 1 + i), 60);
+        }
+        change_color(NORMAL);
+        if (self.title_ms > anim_step_duration * title.len) {
+            w4.text("press any button", 16, 120);
+        }
+    }
+
+    fn update(self: *TitleScreen, ms: u32) void {
+        self.input();
+        self.title_ms += ms;
+    }
+
+    fn input(self: *TitleScreen) void {
+        if (button_released(w4.BUTTON_1)) {
+            self.state = TitleScreenState.ToGame;
         }
     }
 };
