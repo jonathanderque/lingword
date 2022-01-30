@@ -49,6 +49,7 @@ fn change_color(color: u16) void {
     w4.DRAW_COLORS.* = color;
 }
 
+var sound_flag: bool = false;
 fn play_tone_from_letter_status(status: LetterStatus) void {
     const tone: u32 = switch (status) {
         LetterStatus.Absent => 200,
@@ -56,8 +57,9 @@ fn play_tone_from_letter_status(status: LetterStatus) void {
         LetterStatus.CorrectSpot => 740 | (860 << 16),
         else => 740,
     };
-    w4.tone(tone, 4, 80, w4.TONE_PULSE2);
-    _ = status;
+    if (sound_flag) {
+        w4.tone(tone, 4, 80, w4.TONE_PULSE2);
+    }
 }
 
 fn draw_letter_rect(color: u16, x: i32, y: i32) void {
@@ -208,17 +210,20 @@ const TitleScreenState = enum {
 const TitleScreen = struct {
     state: TitleScreenState,
     title_ms: u32,
+    cursor_y: usize,
 
     pub fn init() TitleScreen {
         return TitleScreen{
             .state = TitleScreenState.ActiveMenu,
             .title_ms = 0,
+            .cursor_y = 0,
         };
     }
 
     fn reset(self: *TitleScreen) void {
         self.state = TitleScreenState.ActiveMenu;
         self.title_ms = 0;
+        self.cursor_y = 0;
     }
 
     fn draw_title_screen(self: *TitleScreen) void {
@@ -240,7 +245,24 @@ const TitleScreen = struct {
         }
         change_color(NORMAL);
         if (self.title_ms > anim_step_duration * title.len) {
-            w4.text("press any button", 16, 120);
+            if (self.cursor_y == 0) {
+                w4.text("> start", 16, 120);
+            } else {
+                w4.text("  start", 16, 120);
+            }
+            if (self.cursor_y == 1) {
+                if (sound_flag) {
+                    w4.text("> sound: <on>", 16, 130);
+                } else {
+                    w4.text("> sound: <off>", 16, 130);
+                }
+            } else {
+                if (sound_flag) {
+                    w4.text("  sound: <on>", 16, 130);
+                } else {
+                    w4.text("  sound: <off>", 16, 130);
+                }
+            }
         }
     }
 
@@ -250,8 +272,20 @@ const TitleScreen = struct {
     }
 
     fn input(self: *TitleScreen) void {
+        if (button_released(w4.BUTTON_DOWN) or button_released(w4.BUTTON_UP)) {
+            if (self.cursor_y == 1) {
+                self.cursor_y = 0;
+            } else {
+                self.cursor_y = 1;
+            }
+        }
         if (button_released(w4.BUTTON_1)) {
-            self.state = TitleScreenState.ToGame;
+            if (self.cursor_y == 0) {
+                self.state = TitleScreenState.ToGame;
+            }
+            if (self.cursor_y == 1) {
+                sound_flag = !sound_flag;
+            }
         }
     }
 };
