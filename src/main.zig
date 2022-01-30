@@ -688,7 +688,31 @@ const Lingword = struct {
     fn draw_victory(self: *Lingword) void {
         _ = self;
         change_color(NORMAL);
-        w4.text("Victory !!", guesses_x_offset, kbd_y_offset);
+        // self.current_guess should be incremented when this function is called
+        // so the switch branches are one off. (ie. 1 to 6 instead of 0 to 5)
+        switch (self.current_guess) {
+            1 => {
+                w4.text("How?!?...", guesses_x_offset, kbd_y_offset);
+            },
+            2 => {
+                w4.text("Incredible!", guesses_x_offset, kbd_y_offset);
+            },
+            3 => {
+                w4.text("Excellent!", guesses_x_offset, kbd_y_offset);
+            },
+            4 => {
+                w4.text("Well Done!", guesses_x_offset, kbd_y_offset);
+            },
+            5 => {
+                w4.text("Very Good!", guesses_x_offset, kbd_y_offset);
+            },
+            6 => {
+                w4.text("Phew...", guesses_x_offset, kbd_y_offset);
+            },
+            else => {
+                w4.text("Victory!", guesses_x_offset, kbd_y_offset);
+            },
+        }
         self.draw_end_buttons();
     }
 
