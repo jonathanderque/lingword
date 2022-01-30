@@ -22,6 +22,7 @@ export fn start() void {
 var game: Game = undefined;
 
 const WORD_LENGTH: usize = 5;
+const WORD_LIST_ENTRY_LENGTH: usize = 6;
 const GUESS_LENGTH: usize = 6;
 
 // color schemes
@@ -116,6 +117,7 @@ const LingwordState = enum {
     PlayerInput,
     ReadyToSubmit,
     AssessGuess,
+    UnknownWord,
     Victory,
     Loss,
 };
@@ -154,8 +156,8 @@ const Lingword = struct {
     }
 
     fn reset_random(self: *Lingword) void {
-        const index = random.intRangeLessThan(usize, 0, word_list.len / 6);
-        const slice = word_list[(6 * index)..];
+        const index = random.intRangeLessThan(usize, 0, word_list.len / WORD_LIST_ENTRY_LENGTH);
+        const slice = word_list[(WORD_LIST_ENTRY_LENGTH * index)..];
         self.reset(slice);
     }
 
@@ -309,6 +311,12 @@ const Lingword = struct {
         }
     }
 
+    fn input_unknown_word(self: *Lingword) void {
+        if (self.button_released(w4.BUTTON_1) or self.button_released(w4.BUTTON_2)) {
+            self.state = LingwordState.PlayerInput;
+        }
+    }
+
     fn input(self: *Lingword) void {
         switch (self.state) {
             LingwordState.NotReady => {},
@@ -319,6 +327,9 @@ const Lingword = struct {
                 self.input_kbd();
             },
             LingwordState.AssessGuess => {},
+            LingwordState.UnknownWord => {
+                self.input_unknown_word();
+            },
             LingwordState.Victory => {
                 self.input_end();
             },
@@ -356,7 +367,36 @@ const Lingword = struct {
         }
     }
 
+    fn wordlist_contains_guess(self: *Lingword) bool {
+        var low: usize = 0;
+        const word_list_len = word_list.len / WORD_LIST_ENTRY_LENGTH;
+        var high: usize = word_list_len - 1;
+        var idx: usize = (low + high) / 2;
+        while (low < high - 1) {
+            var i: usize = 0;
+            var cmp: i32 = 0;
+            while (i < WORD_LENGTH) : (i += 1) {
+                if (cmp == 0) {
+                    cmp = @intCast(i32, self.guesses[self.current_guess][i]) - @intCast(i32, word_list[idx * WORD_LIST_ENTRY_LENGTH + i]);
+                }
+            }
+            if (cmp < 0) {
+                high = idx;
+            } else if (cmp > 0) {
+                low = idx;
+            } else {
+                return true;
+            }
+            idx = (low + high) / 2;
+        }
+        return false;
+    }
+
     fn assess_guess(self: *Lingword) void {
+        if (self.wordlist_contains_guess() == false) {
+            self.state = LingwordState.UnknownWord;
+            return;
+        }
         self.assess_guess_colors();
         if (self.guess_is_correct()) {
             self.state = LingwordState.Victory;
@@ -535,7 +575,6 @@ const Lingword = struct {
     }
 
     fn draw_loss(self: *Lingword) void {
-        _ = self;
         change_color(NORMAL);
         w4.text("You lose..", guesses_x_offset, kbd_y_offset);
         w4.text("Answer was", guesses_x_offset, kbd_y_offset + 10);
@@ -544,6 +583,12 @@ const Lingword = struct {
         while (i < WORD_LENGTH) : (i += 1) {
             draw_letter(self.word_to_guess[i], guesses_x_offset + @intCast(i32, i) * 16, kbd_y_offset + 30);
         }
+    }
+
+    fn draw_unknown_word(self: *Lingword) void {
+        _ = self;
+        change_color(NORMAL);
+        w4.text("Unknown word", guesses_x_offset, kbd_y_offset);
     }
 
     fn draw(self: *Lingword) void {
@@ -559,6 +604,10 @@ const Lingword = struct {
                 self.draw_submit_guess();
             },
             LingwordState.AssessGuess => {},
+            LingwordState.UnknownWord => {
+                self.draw_guesses();
+                self.draw_unknown_word();
+            },
             LingwordState.Victory => {
                 self.draw_guesses();
                 self.draw_victory();
