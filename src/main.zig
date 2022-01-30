@@ -188,6 +188,8 @@ const Game = struct {
             },
         }
         previous_input = w4.GAMEPAD1.*;
+        // cycle through on each frame as the RNG is not properly seeded
+        _ = random.intRangeLessThan(usize, 0, word_list.len / WORD_LIST_ENTRY_LENGTH);
     }
 
     fn draw(self: *Game) void {
