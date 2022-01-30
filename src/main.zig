@@ -183,12 +183,17 @@ const Game = struct {
             GameState.TitleScreen => {
                 if (button_released(w4.BUTTON_1) or button_released(w4.BUTTON_2)) {
                     self.state = GameState.Lingword;
+                    self.lingword.state = LingwordState.NotReady;
                     self.title_step = 0;
                 }
                 self.title_step += 16;
             },
             GameState.Lingword => {
-                self.lingword.update(16);
+                if (self.lingword.state == LingwordState.BackToMenu) {
+                    self.state = GameState.TitleScreen;
+                } else {
+                    self.lingword.update(16);
+                }
             },
         }
         previous_input = w4.GAMEPAD1.*;
@@ -208,9 +213,9 @@ const Game = struct {
     fn input(self: *Game) void {
         switch (self.state) {
             GameState.TitleScreen => {
-                //if (button_released(w4.BUTTON_1) or button_released(w4.BUTTON_2)) {
                 if (w4.GAMEPAD1.* & w4.BUTTON_1 != 0) {
                     self.state = GameState.Lingword;
+                    self.lingword.state = LingwordState.NotReady;
                     self.title_step = 0;
                 }
             },
@@ -231,14 +236,16 @@ const kbd_row_2 = "asdfghjkl";
 const kbd_row_3 = "zxcvbnm";
 
 const LingwordState = enum {
+    BackToMenu,
     NotReady,
     PlayerInput,
     ReadyToSubmit,
     AssessGuess,
     RevealGuess,
     UnknownWord,
-    Victory,
+    Victory, // include End in the same screen
     Loss,
+    End,
 };
 
 const LetterStatus = enum {
@@ -420,9 +427,18 @@ const Lingword = struct {
         }
     }
 
-    fn input_end(self: *Lingword) void {
+    fn input_loss(self: *Lingword) void {
         if (button_released(w4.BUTTON_1) or button_released(w4.BUTTON_2)) {
+            self.state = LingwordState.End;
+        }
+    }
+
+    fn input_end(self: *Lingword) void {
+        if (button_released(w4.BUTTON_1)) {
             self.state = LingwordState.NotReady;
+        }
+        if (button_released(w4.BUTTON_2)) {
+            self.state = LingwordState.BackToMenu;
         }
     }
 
@@ -434,6 +450,7 @@ const Lingword = struct {
 
     fn input(self: *Lingword) void {
         switch (self.state) {
+            LingwordState.BackToMenu => {},
             LingwordState.NotReady => {},
             LingwordState.ReadyToSubmit => {
                 self.input_submit();
@@ -450,6 +467,9 @@ const Lingword = struct {
                 self.input_end();
             },
             LingwordState.Loss => {
+                self.input_loss();
+            },
+            LingwordState.End => {
                 self.input_end();
             },
         }
@@ -658,10 +678,18 @@ const Lingword = struct {
         w4.text("BTN2 to edit", guesses_x_offset - 8, kbd_y_offset + 20);
     }
 
+    fn draw_end_buttons(self: *Lingword) void {
+        _ = self;
+        change_color(NORMAL);
+        w4.text("BTN1 to continue", 8, kbd_y_offset + 20);
+        w4.text("BTN2 to go to menu", 8, kbd_y_offset + 30);
+    }
+
     fn draw_victory(self: *Lingword) void {
         _ = self;
         change_color(NORMAL);
         w4.text("Victory !!", guesses_x_offset, kbd_y_offset);
+        self.draw_end_buttons();
     }
 
     fn draw_loss(self: *Lingword) void {
@@ -682,6 +710,7 @@ const Lingword = struct {
 
     fn draw(self: *Lingword) void {
         switch (self.state) {
+            LingwordState.BackToMenu => {},
             LingwordState.NotReady => {},
             LingwordState.PlayerInput => {
                 self.draw_guesses();
@@ -707,6 +736,10 @@ const Lingword = struct {
             LingwordState.Loss => {
                 self.draw_guesses();
                 self.draw_loss();
+            },
+            LingwordState.End => {
+                self.draw_guesses();
+                self.draw_end_buttons();
             },
         }
     }
