@@ -561,7 +561,7 @@ const Lingword = struct {
         for (self.guesses[self.current_guess]) |letter, idx| {
             var j: usize = 0;
             while (j < WORD_LENGTH) : (j += 1) {
-                if (word_to_guess[j] == letter) {
+                if (word_to_guess[j] == letter and self.guesses_assessment[self.current_guess][idx] != LetterStatus.CorrectSpot) {
                     self.guesses_assessment[self.current_guess][idx] = LetterStatus.Present;
                     self.letter_statuses[letter - 'a'] = LetterStatus.Present;
                     word_to_guess[j] = '.';
