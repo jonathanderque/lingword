@@ -2,6 +2,8 @@
 
 Lingword is word guessing game similar to Lingo/Wordle written in [Zig](https://ziglang.org) for the [WASM-4](https://wasm4.org/) fantasy console.
 
+<img src="images/lingword160.png" width=320 />
+
 ## Builing instructions
 
 Assuming WASM-4 is already installed on your system:
@@ -31,3 +33,9 @@ The game will color your guesses as follows:
 * a letter in a green square means this letter is correctly positioned
 * a letter in a yellow square means the answer contains this letter at another position
 * a letter in a black square means this letter is not part of the answer
+
+For example, given the first guess in the screenshot above, we know that:
+
+* The answer ends with an 'e'
+* The answer contains an 'i', but not in the first position
+* The answer does not contain 'r', 'a' or 't'
