@@ -49,6 +49,17 @@ fn change_color(color: u16) void {
     w4.DRAW_COLORS.* = color;
 }
 
+fn play_tone_from_letter_status(status: LetterStatus) void {
+    const tone: u32 = switch (status) {
+        LetterStatus.Absent => 200,
+        LetterStatus.Present => 400,
+        LetterStatus.CorrectSpot => 740 | (860 << 16),
+        else => 740,
+    };
+    w4.tone(tone, 4, 80, w4.TONE_PULSE2);
+    _ = status;
+}
+
 fn draw_letter_rect(color: u16, x: i32, y: i32) void {
     const rect_color = switch (color) {
         UNSPECIFIED => UNSPECIFIED_RECT,
@@ -265,6 +276,7 @@ const Lingword = struct {
     cursor_x: isize,
     cursor_y: isize,
     reveal_timer: u32,
+    reveal_step: usize,
 
     fn init() Lingword {
         var w = Lingword{
@@ -277,6 +289,7 @@ const Lingword = struct {
             .cursor_x = 0,
             .cursor_y = 0,
             .reveal_timer = 0,
+            .reveal_step = 0,
         };
         return w;
     }
@@ -535,12 +548,18 @@ const Lingword = struct {
         self.assess_guess_colors();
         self.state = LingwordState.RevealGuess;
         self.reveal_timer = 0;
+        self.reveal_step = 0;
     }
 
     fn reveal_guess(self: *Lingword, ms: u32) void {
         self.reveal_timer += ms;
 
         if (self.reveal_timer < 6 * anim_step_duration) {
+            const new_step = self.reveal_timer / anim_step_duration;
+            if (new_step != self.reveal_step) {
+                play_tone_from_letter_status(self.guesses_assessment[self.current_guess][new_step - 1]);
+                self.reveal_step = new_step;
+            }
             return;
         }
         if (self.guess_is_correct()) {
