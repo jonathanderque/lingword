@@ -549,7 +549,9 @@ const Lingword = struct {
             word_to_guess[i] = self.word_to_guess[i];
         }
         for (self.guesses[self.current_guess]) |letter, idx| {
-            self.letter_statuses[letter - 'a'] = LetterStatus.Absent;
+            if (self.letter_statuses[letter - 'a'] == LetterStatus.Unknown) {
+                self.letter_statuses[letter - 'a'] = LetterStatus.Absent;
+            }
             if (word_to_guess[idx] == letter) {
                 self.guesses_assessment[self.current_guess][idx] = LetterStatus.CorrectSpot;
                 self.letter_statuses[letter - 'a'] = LetterStatus.Present;
