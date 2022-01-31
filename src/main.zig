@@ -76,36 +76,8 @@ fn draw_letter_rect(color: u16, x: i32, y: i32) void {
 }
 
 fn draw_letter(letter: u8, color: u16, x: i32, y: i32) void {
-    const str =
-        switch (letter) {
-        'a' => "A",
-        'b' => "B",
-        'c' => "C",
-        'd' => "D",
-        'e' => "E",
-        'f' => "F",
-        'g' => "G",
-        'h' => "H",
-        'i' => "I",
-        'j' => "J",
-        'k' => "K",
-        'l' => "L",
-        'm' => "M",
-        'n' => "N",
-        'o' => "O",
-        'p' => "P",
-        'q' => "Q",
-        'r' => "R",
-        's' => "S",
-        't' => "T",
-        'u' => "U",
-        'v' => "V",
-        'w' => "W",
-        'x' => "X",
-        'y' => "Y",
-        'z' => "Z",
-        else => " ",
-    };
+    const upper = std.ascii.toUpper(letter);
+    const str = &[_]u8{upper};
     draw_letter_rect(color, x, y);
     change_color(color);
     w4.text(str, x + 3, y + 3);
