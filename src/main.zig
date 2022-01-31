@@ -83,39 +83,6 @@ fn draw_letter(letter: u8, color: u16, x: i32, y: i32) void {
     w4.text(str, x + 3, y + 3);
 }
 
-export fn to_be_removed() void {
-    var i: usize = 1;
-    while (i < WORD_LENGTH) : (i += 1) {
-        var j: usize = 1;
-        while (j < WORD_LENGTH) : (j += 1) {
-            w4.DRAW_COLORS.* = @intCast(u16, j) | (@intCast(u16, i) << 4);
-            w4.rect(10 * @intCast(i32, i), 10 * @intCast(i32, j), 10, 10);
-        }
-    }
-    change_color(NORMAL);
-    w4.text("normal", 60, 10);
-    change_color(WRONG_SPOT);
-    w4.text("wrong spot", 60, 20);
-    change_color(CORRECT_SPOT);
-    w4.text("correct spot", 60, 30);
-    change_color(ABSENT);
-    w4.text("> ABSENT", 60, 40);
-    change_color(NORMAL);
-    if (w4.GAMEPAD1.* & w4.BUTTON_1 != 0) {
-        change_color(ABSENT);
-    } else {
-        change_color(NORMAL);
-    }
-    w4.rect(0, 0, 5, 5);
-    if (w4.GAMEPAD1.* & w4.BUTTON_2 != 0) {
-        change_color(ABSENT);
-    } else {
-        change_color(NORMAL);
-    }
-    w4.rect(5, 0, 5, 5);
-    change_color(NORMAL);
-}
-
 export fn update() void {
     game.update();
     game.draw();
