@@ -769,7 +769,7 @@ const Lingword = struct {
     fn draw_unknown_word(self: *Lingword) void {
         _ = self;
         change_color(NORMAL);
-        w4.text("Unknown word", guesses_x_offset, kbd_y_offset);
+        w4.text("Unknown word", guesses_x_offset - 8, kbd_y_offset);
     }
 
     fn draw(self: *Lingword) void {
