@@ -482,6 +482,31 @@ const Lingword = struct {
         }
     }
 
+    // We never "downgrade" a letter
+    // (ie. if a letter was green in a previous guess, it will never display as yellow)
+    fn update_letter_status(self: *Lingword, letter: u8, status: LetterStatus) void {
+        switch (self.letter_statuses[letter - 'a']) {
+            LetterStatus.Unknown => {
+                self.letter_statuses[letter - 'a'] = status;
+            },
+            LetterStatus.Absent => {
+                if (status != LetterStatus.Unknown) {
+                    self.letter_statuses[letter - 'a'] = status;
+                }
+            },
+            LetterStatus.Present => {
+                if (status != LetterStatus.Unknown and status != LetterStatus.Absent) {
+                    self.letter_statuses[letter - 'a'] = status;
+                }
+            },
+            LetterStatus.CorrectSpot => {
+                if (status != LetterStatus.Unknown and status != LetterStatus.Absent and status != LetterStatus.Present) {
+                    self.letter_statuses[letter - 'a'] = status;
+                }
+            },
+        }
+    }
+
     fn assess_guess_colors(self: *Lingword) void {
         var i: usize = 0;
         var word_to_guess: [WORD_LENGTH:0]u8 = undefined;
@@ -490,12 +515,10 @@ const Lingword = struct {
             word_to_guess[i] = self.word_to_guess[i];
         }
         for (self.guesses[self.current_guess]) |letter, idx| {
-            if (self.letter_statuses[letter - 'a'] == LetterStatus.Unknown) {
-                self.letter_statuses[letter - 'a'] = LetterStatus.Absent;
-            }
+            self.update_letter_status(letter, LetterStatus.Absent);
             if (word_to_guess[idx] == letter) {
                 self.guesses_assessment[self.current_guess][idx] = LetterStatus.CorrectSpot;
-                self.letter_statuses[letter - 'a'] = LetterStatus.Present;
+                self.update_letter_status(letter, LetterStatus.CorrectSpot);
                 word_to_guess[idx] = '.';
             }
         }
@@ -504,8 +527,9 @@ const Lingword = struct {
             while (j < WORD_LENGTH) : (j += 1) {
                 if (word_to_guess[j] == letter and self.guesses_assessment[self.current_guess][idx] != LetterStatus.CorrectSpot) {
                     self.guesses_assessment[self.current_guess][idx] = LetterStatus.Present;
-                    self.letter_statuses[letter - 'a'] = LetterStatus.Present;
+                    self.update_letter_status(letter, LetterStatus.Present);
                     word_to_guess[j] = '.';
+                    break;
                 }
             }
         }
@@ -558,6 +582,7 @@ const Lingword = struct {
             }
             return;
         }
+
         if (self.guess_is_correct()) {
             self.state = LingwordState.Victory;
         } else if (self.current_guess == 5) {
