@@ -536,26 +536,26 @@ const Lingword = struct {
     }
 
     fn wordlist_contains_guess(self: *Lingword) bool {
-        var low: usize = 0;
+        var low: isize = 0;
         const word_list_len = word_list.len / WORD_LIST_ENTRY_LENGTH;
-        var high: usize = word_list_len - 1;
-        var idx: usize = (low + high) / 2;
-        while (low < high - 1) {
+        var high: isize = word_list_len - 1;
+        var idx: isize = undefined;
+        while (low <= high) {
+            idx = @divTrunc(low + high, 2);
             var i: usize = 0;
             var cmp: i32 = 0;
             while (i < WORD_LENGTH) : (i += 1) {
                 if (cmp == 0) {
-                    cmp = @intCast(i32, self.guesses[self.current_guess][i]) - @intCast(i32, word_list[idx * WORD_LIST_ENTRY_LENGTH + i]);
+                    cmp = @intCast(i32, self.guesses[self.current_guess][i]) - @intCast(i32, word_list[@intCast(usize, idx) * WORD_LIST_ENTRY_LENGTH + i]);
                 }
             }
             if (cmp < 0) {
-                high = idx;
+                high = idx - 1;
             } else if (cmp > 0) {
-                low = idx;
+                low = idx + 1;
             } else {
                 return true;
             }
-            idx = (low + high) / 2;
         }
         return false;
     }
